@@ -10,22 +10,24 @@ public class MyBot : IChessBot
     {
         int bestEval = (board.IsWhiteToMove) ? -infinity : infinity;
         Move bestMove = Move.NullMove;
-        for (int d = 0; (d < depthMax) && (timer.MillisecondsElapsedThisTurn < timerMax) && (!board.IsInCheckmate()); d++)
+        int d;
+        for (d = 0; (d < depthMax) && (timer.MillisecondsElapsedThisTurn < timerMax) && (!board.IsInCheckmate()); d++)
         {
             foreach (Move move in board.GetLegalMoves())
             {
                 board.MakeMove(move);
                 int eval = Negamax(board, infinity, -infinity, d);
                 board.UndoMove(move);
-                if (eval > bestEval)
+                if ((board.IsWhiteToMove && (eval > bestEval)) || (!board.IsWhiteToMove && (eval < bestEval)))
                 {
                     bestEval = eval;
                     bestMove = move;
                 }
             }
         }
+        Console.WriteLine(d);
 
-        return board.GetLegalMoves()[0];
+        return bestMove;
     }
 
     int Negamax(Board board, int alpha, int beta, int depth)
@@ -42,7 +44,22 @@ public class MyBot : IChessBot
             }
             return 1;
         }
-        return 0;
+
+        foreach (Move move in board.GetLegalMoves())
+        {
+            board.MakeMove(move);
+            int score = -Negamax(board, -alpha, -beta, depth - 1);
+            board.UndoMove(move);
+            if (score >= beta)
+            {
+                return beta;
+            }
+            if (score > alpha)
+            {
+                alpha = score;
+            }
+        }
+        return alpha;
     }
 
     int Evaluate(Board board)
