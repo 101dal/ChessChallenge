@@ -24,7 +24,6 @@ public class MyBotv4 : IChessBot
                 board.MakeMove(move);
                 int color = board.IsWhiteToMove ? 1 : -1;
                 int score = -Negamax(board, depth - 1, -beta, -alpha, color);
-                //Console.WriteLine($"{score} {move}"); //#DEBUG
                 board.UndoMove(move);
 
                 if (score > bestScore)
@@ -44,9 +43,6 @@ public class MyBotv4 : IChessBot
             if (timer.MillisecondsElapsedThisTurn >= maxTime || bestScore >= infinity)
                 break;
         }
-
-        Console.WriteLine($"{positions} PV with best score of {bestScore} and depth {depth} in {timer.MillisecondsElapsedThisTurn}ms"); //#DEBUG
-
         return bestMove == Move.NullMove ? allMoves[0] : bestMove;
     }
 
@@ -113,7 +109,6 @@ public class MyBotv4 : IChessBot
         board.ForceSkipTurn();
         mobility -= board.GetLegalMoves().Length - board.GetLegalMoves(true).Length;
         board.UndoSkipTurn();
-        //Console.WriteLine((mobility * (board.IsWhiteToMove?1:-1)).ToString()); //#DEBUG
         return mobility * (board.IsWhiteToMove ? 1 : -1);
     }
 
