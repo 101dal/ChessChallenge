@@ -5,9 +5,9 @@ public class MyBot : IChessBot
 {
     private int positions = 0; //#DEBUG
     private const int infinity = 1000000;
-    private const int minDepth = 3;
+    private const int minDepth = 2;
     private const int maxDepth = 100;
-    private const int maxTime = 50;
+    private const int maxTime = 100;
 
     public Move Think(Board board, Timer timer)
     {
@@ -32,8 +32,8 @@ public class MyBot : IChessBot
                     bestScore = score;
                     bestMove = move;
                 }
-                
-                if(bestScore>=infinity) break;
+
+                if (bestScore >= infinity) break;
 
                 alpha = Math.Max(alpha, score);
 
@@ -80,40 +80,47 @@ public class MyBot : IChessBot
         positions++; //#DEBUG
 
         if (board.IsInCheckmate())
-            return board.IsWhiteToMove ? -infinity : infinity;
+            return board.IsWhiteToMove ? -(infinity + board.PlyCount) : infinity + board.PlyCount;
 
-        if (board.IsDraw())
-            return board.IsWhiteToMove ? 1 :-1;
+        if (board.IsInStalemate())
+            return board.IsWhiteToMove ? -100 : 100;
+        if(board.IsDraw()) return 0;
 
         int evaluation = 0;
+
+        // Material Balance
+        int materialBalance = 0;
         foreach (PieceList pieces in board.GetAllPieceLists())
         {
             foreach (Piece piece in pieces)
             {
                 int score = pieceValues[(int)piece.PieceType];
-                evaluation += piece.IsWhite ? score : -score;
+                materialBalance += piece.IsWhite ? score : -score;
             }
         }
+        evaluation += materialBalance;
 
+        // Piece Activity
         evaluation += PieceMobility(board);
 
         return evaluation;
     }
 
-    private int PieceMobility(Board board) {
+    private int PieceMobility(Board board)
+    {
         int mobility = 0;
         mobility += board.GetLegalMoves().Length - board.GetLegalMoves(true).Length;
         board.ForceSkipTurn();
         mobility -= board.GetLegalMoves().Length - board.GetLegalMoves(true).Length;
         board.UndoSkipTurn();
         //Console.WriteLine((mobility * (board.IsWhiteToMove?1:-1)).ToString()); //#DEBUG
-        return mobility * (board.IsWhiteToMove?1:-1);
+        return mobility * (board.IsWhiteToMove ? 1 : -1);
     }
 
     private Move[] OrderedMoves(Board board)
     {
         Move[] allMoves = board.GetLegalMoves();
-        Array.Sort(allMoves, (m1, m2) => GetMoveScore(m2,board) - GetMoveScore(m1,board));
+        Array.Sort(allMoves, (m1, m2) => GetMoveScore(m2, board) - GetMoveScore(m1, board));
         return allMoves;
     }
 
@@ -124,7 +131,7 @@ public class MyBot : IChessBot
         PieceType MovePieceType = move.MovePieceType;
 
         board.MakeMove(move);
-        if(board.IsInCheckmate()) score+= infinity;
+        if (board.IsInCheckmate()) score += infinity;
 
         if (move.IsPromotion)
             score += pieceValues[(int)move.PromotionPieceType];
@@ -137,7 +144,7 @@ public class MyBot : IChessBot
 
         if (MovePieceType == PieceType.King || MovePieceType == PieceType.Queen)
             score -= infinity;
-        
+
         board.UndoMove(move);
 
         return score;
