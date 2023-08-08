@@ -7,7 +7,7 @@ using ChessChallenge.API;
 public class MyBot : IChessBot
 {
     int positions = 0; //#DEBUG
-    int minDepth = 4;
+    int minDepth = 3;
     int maxDepth = 100;
     int infinity = 1000000;
     int maxTime = 100; // In ms
