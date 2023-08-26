@@ -1,113 +1,59 @@
 ﻿using System;
 using ChessChallenge.API;
 
+
 public class MyBot : IChessBot
 {
 
-    int positions = 0; //#DEBUG
-    int minDepth = 3;
-    int maxDepth = 100;
-    int infinity = 1000000;
-    int maxTime = 100; // In ms
+    int inf = 10000;
 
-    int sideMated = 0; //#DEBUG 0 if none, 1 if whote -1 of black
-
-    public Move Think(Board board, Timer timer)
+    int maxDepth = 1;
+    Board board;
+    int[] p_value = { 0, 100, 300, 320, 500, 900, 10000 };
+    public Move Think(Board mainBoard, Timer timer)
     {
-        maxTime = (timer.GameStartTimeMilliseconds + timer.IncrementMilliseconds * 100)/100;
-        positions = 0; //#DEBUG
-        int d;//#DEBUG
-        Move bestMove = Move.NullMove;
-        int bestScore = -infinity;
-        for (d = minDepth; d <= maxDepth; d++)
+        board = mainBoard;
+        Move bm = Move.NullMove;
+        for (int depth = 0; depth < maxDepth; depth++)
         {
-            (Move move, int score) = Negamax(board, d, -infinity, infinity, board.IsWhiteToMove ? 1 : -1, ref timer);
-            if(timer.MillisecondsElapsedThisTurn >= maxTime && d!=minDepth) break;
-            bestMove = move;
-            bestScore = score; //#DEBUG
+            (bm, _) = Negamax(depth, inf, -inf);
         }
-        Console.WriteLine($"{positions} PV / BS {bestScore} / BM {bestMove} / SideMated {sideMated} / T {timer.MillisecondsElapsedThisTurn}ms / MT {maxTime} / D {d-1}");//#DEBUG
-        if (bestMove == Move.NullMove) bestMove = OrderedMoves(board)[0];
-        return bestMove;
+        return bm;
     }
 
-    private (Move, int) Negamax(Board board, int depth, int alpha, int beta, int color, ref Timer timer)
+    (Move, int) Negamax(int depth, int beta, int alpha)
     {
-        if(timer.MillisecondsElapsedThisTurn >= maxTime) return (Move.NullMove, Evaluate(board, color));
-        Move[] allMoves = board.GetLegalMoves();
-        if (depth == 0 || board.IsInCheckmate() || board.IsDraw()) return (Move.NullMove, Evaluate(board, color));
+        if (depth == 0) return (Move.NullMove, Evaluate());
 
-        int bestScore = -infinity;
-        Move bestMove = allMoves[0];
-        foreach (Move move in OrderedMoves(board))
+        Move b_Move = Move.NullMove;
+        foreach (Move move in board.GetLegalMoves())
         {
             board.MakeMove(move);
-            (_, int score) = Negamax(board, depth - 1, -beta, -alpha, -color, ref timer);
-            score = -score;
+            (_, int score) = Negamax(depth - 1, -alpha, -beta);
             board.UndoMove(move);
 
-            if (score > bestScore)
+            if (score >= beta)
             {
-                bestScore = score;
-                bestMove = move;
+                return (move, beta);
             }
-            alpha = Math.Max(alpha, score);
-
-            if (alpha >= beta)
-                break;
+            if (score > alpha)
+            {
+                alpha = score;
+                b_Move = move;
+            }
         }
-
-        return (bestMove, bestScore);
+        return (b_Move, alpha);
     }
 
-    private readonly int[] pieceValues = { 0, 100, 300, 320, 500, 900, 10000 };
-    // Positive if the current side is winning
-    private int Evaluate(Board board, int color)
+    int Evaluate()
     {
-        positions++;//#DEBUG
-
-        if (board.IsInCheckmate())
+        int eval = 0;
+        for (int i = 0; i < 6; i++)
         {
-            sideMated = board.IsWhiteToMove ? 1 : -1; //#DEBUG
-            // Return a large positive or negative value based on color
-            return (infinity - board.PlyCount) * color;
+            eval += (board.GetPieceList((PieceType)i, true).Count + board.GetPieceList((PieceType)i, false).Count) * p_value[i];
         }
-
-        if (board.IsFiftyMoveDraw()) return -20 * color;
-        if (board.IsInStalemate()) return 0;
-        if (board.IsInsufficientMaterial()) return -5 * color;
-        if (board.IsRepeatedPosition()) return -40 * color;
-
-        int evaluation = 0;
-        for (int i = 1; i <= 6; i++) // Start from index 1 to skip None piece
-            evaluation += (board.GetPieceList((PieceType)i, true).Count - board.GetPieceList((PieceType)i, false).Count) * pieceValues[i];
-
-        return evaluation * color;
+        return eval * (board.IsWhiteToMove ? 1 : -1);
     }
 
-    private Move[] OrderedMoves(Board board)
-    {
-        Move[] allMoves = board.GetLegalMoves();
-        Array.Sort(allMoves, (m1, m2) => GetMoveScore(m2) - GetMoveScore(m1));
-        return allMoves;
-    }
 
-    private int GetMoveScore(Move move)
-    {
-        int score = 0;
-
-        if (move.IsPromotion)
-            score += pieceValues[(int)move.PromotionPieceType];
-
-        if (move.IsCapture)
-            score += pieceValues[(int)move.CapturePieceType] - pieceValues[(int)move.MovePieceType];
-
-        if (move.IsCastles)
-            score += 1000;
-
-        if (move.MovePieceType == PieceType.King || move.MovePieceType == PieceType.Queen)
-            score -= infinity;
-
-        return score;
-    }
 }
