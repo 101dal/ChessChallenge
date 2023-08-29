@@ -1,59 +1,64 @@
 ﻿using System;
 using ChessChallenge.API;
 
-
 public class MyBot : IChessBot
 {
+    int positions = 0; //#DEBUG
 
-    int inf = 10000;
-
-    int maxDepth = 1;
+    int infinity = 1000000;
     Board board;
-    int[] p_value = { 0, 100, 300, 320, 500, 900, 10000 };
-    public Move Think(Board mainBoard, Timer timer)
+
+    public Move Think(Board mboard, Timer timer)
     {
-        board = mainBoard;
-        Move bm = Move.NullMove;
-        for (int depth = 0; depth < maxDepth; depth++)
-        {
-            (bm, _) = Negamax(depth, inf, -inf);
-        }
-        return bm;
+        board = mboard;
+        (int bestEval, Move bestMove) = Negamax(-infinity, infinity, 6, board.IsWhiteToMove ? -1 : 1);
+        Console.WriteLine($"Positions {positions} | Time {timer.MillisecondsElapsedThisTurn} | Best Eval {-bestEval} | First Move {bestMove}");//#DEBUG
+        Move[] mvs = board.GetLegalMoves();
+        if (bestMove == Move.NullMove) bestMove = mvs[new Random().Next(mvs.Length)];
+        return bestMove;
     }
 
-    (Move, int) Negamax(int depth, int beta, int alpha)
+    (int, Move) Negamax(int alpha, int beta, int depthleft, int color)
     {
-        if (depth == 0) return (Move.NullMove, Evaluate());
-
-        Move b_Move = Move.NullMove;
+        if (depthleft == 0 || board.IsInCheckmate() || board.IsDraw())
+            return (Evaluate() * color, Move.NullMove); // Corrected this line
+        Move bm = Move.NullMove;
+        int bestScore = -infinity;
         foreach (Move move in board.GetLegalMoves())
         {
             board.MakeMove(move);
-            (_, int score) = Negamax(depth - 1, -alpha, -beta);
+            (int score, _) = Negamax(-beta, -alpha, depthleft - 1, -color);
             board.UndoMove(move);
+            score = -score; // Corrected this line
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bm = move;
+            }
+            alpha = Math.Max(alpha, score);
 
-            if (score >= beta)
-            {
-                return (move, beta);
-            }
-            if (score > alpha)
-            {
-                alpha = score;
-                b_Move = move;
-            }
+            if (alpha >= beta)
+                break;
         }
-        return (b_Move, alpha);
+        return (bestScore, bm); // Corrected this line
     }
 
+    int[] p_values = { 0, 100, 300, 320, 500, 900, 10000 };
     int Evaluate()
     {
+        if (board.IsDraw()) return 0;
+        if (board.IsInCheckmate()) return -infinity;
+        positions++;//#DEBUG
+
         int eval = 0;
-        for (int i = 0; i < 6; i++)
+        foreach (PieceList pieces in board.GetAllPieceLists())
         {
-            eval += (board.GetPieceList((PieceType)i, true).Count + board.GetPieceList((PieceType)i, false).Count) * p_value[i];
+            foreach (Piece piece in pieces)
+            {
+                int v = p_values[(int)piece.PieceType];
+                eval += piece.IsWhite ? v : -v;
+            }
         }
-        return eval * (board.IsWhiteToMove ? 1 : -1);
+        return eval;
     }
-
-
 }
